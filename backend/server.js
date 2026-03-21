@@ -14,15 +14,18 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
-    maxHttpBufferSize: 1e8 // Increase socket buffer size for files (approx 100MB)
+    cors: { 
+        origin: "https://whatsapp-mern-task.vercel.app", 
+        methods: ["GET", "POST"] 
+    },
+    maxHttpBufferSize: 1e8 
 });
 
 // --- AI CONFIGURATION ---
 // Make sure GEMINI_API_KEY is in your .env file
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const aiModel = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-1.5-flash",
     systemInstruction: "You are a helpful AI assistant. Keep your responses extremely short, direct, and natural. Do not mention that you are a clone or who built you unless explicitly asked. Avoid marketing language. Just answer the user's question simply."
 });
 
