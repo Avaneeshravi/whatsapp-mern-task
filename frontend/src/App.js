@@ -6,6 +6,7 @@ import './App.css';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import AuthScreen from './components/AuthScreen';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const socket = io(API_URL);
 const professionalColors = ["E3F2FD", "F1F8E9", "FFF3E0", "F3E5F5", "E8F5E9", "E0F2F1", "EFEBE9"];
 
