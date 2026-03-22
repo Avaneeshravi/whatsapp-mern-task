@@ -117,6 +117,56 @@ const StatusUpdate = mongoose.model('StatusUpdate', new mongoose.Schema({
 app.get('/',       (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 app.get('/health', (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 
+// ── REGISTER (new users only) ──────────────────────────────────────────────
+app.post('/api/register', async (req, res) => {
+    const { username, password, mobile, email } = req.body;
+
+    if (!username || !password || !mobile) {
+        return res.status(400).json({ error: 'Username, password and mobile are required.' });
+    }
+
+    try {
+        const existing = await User.findOne({ username });
+        if (existing) {
+            return res.status(409).json({ error: 'Username already taken. Please choose another.' });
+        }
+
+        const user = new User({ username, password, mobile, email });
+        await user.save();
+        res.status(201).json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── LOGIN (existing users only) ────────────────────────────────────────────
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    try {
+        const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ error: 'Account not found. Please register first.' });
+        }
+        if (user.password !== password) {
+            return res.status(401).json({ error: 'Incorrect password.' });
+        }
+        res.status(200).json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Keep old /api/auth as a fallback alias for login only ─────────────────
+// (Remove this block once frontend is fully updated)
+app.post('/api/auth', async (req, res) => {
+    return res.status(410).json({ error: 'This endpoint is deprecated. Use /api/login or /api/register.' });
+});
+
 app.post('/api/status', async (req, res) => {
     try {
         const { username, type, content, bgColor, caption } = req.body;
@@ -147,20 +197,6 @@ app.get('/api/status', async (req, res) => {
             createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
         }).sort({ createdAt: 1 });
         res.json(statuses);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/auth', async (req, res) => {
-    const { username, password, mobile, email } = req.body;
-    try {
-        let user = await User.findOne({ username });
-        if (!user) {
-            user = new User({ username, password, mobile: mobile || '0000000000', email });
-            await user.save();
-        } else if (user.password !== password) {
-            return res.status(401).json({ error: "Invalid password" });
-        }
-        res.status(200).json(user);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
