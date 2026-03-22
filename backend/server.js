@@ -275,7 +275,10 @@ io.on('connection', (socket) => {
     socket.on('mark_read', async ({ messageId, sender }) => {
         try {
             await Message.findByIdAndUpdate(messageId, { isRead: true });
+            // Tell sender: this message is now read (turns ticks blue)
             io.to(sender).emit('message_read_confirmed', messageId);
+            // Also tell sender to refresh their sidebar (unread count update)
+            io.to(sender).emit('user_status_update');
         } catch (err) { console.error("Read Error:", err); }
     });
 
