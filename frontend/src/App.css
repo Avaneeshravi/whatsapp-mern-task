@@ -28,6 +28,10 @@
 /* ── RESET ───────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; }
+/* Mobile keyboard resize — viewport shrinks when keyboard opens */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
 body {
   font-family: "Segoe UI","Helvetica Neue",Helvetica,Arial,Ubuntu,sans-serif;
   background: #dadbd3;
@@ -1144,10 +1148,14 @@ input  { font-family: inherit; }
     top: 0 !important;
     left: 0 !important;
     width: 100vw !important;
-    height: 100vh !important;
+    /* Use dvh so it shrinks when the keyboard opens */
+    height: 100dvh !important;
+    height: 100vh !important; /* fallback for older browsers */
     display: flex !important;
     flex-direction: column !important;
     z-index: 1000 !important;
+    /* Let the browser resize the viewport when keyboard opens */
+    overflow: hidden !important;
   }
 
   /* ── CHAT HEADER ── */
@@ -1163,26 +1171,31 @@ input  { font-family: inherit; }
 
   /* ── MESSAGES ── */
   .messages-area {
-    flex: 1 !important;
+    flex: 1 1 0% !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     padding: 10px 4% 8px !important;
+    /* Ensure it never grows beyond available space */
+    min-height: 0 !important;
   }
 
   .message { max-width: 82% !important; font-size: 14px !important; }
 
-  /* ── INPUT AREA ── */
+  /* ── INPUT AREA WRAPPER — always visible at bottom ── */
   .input-area-wrapper {
     flex-shrink: 0 !important;
     position: relative !important;
     background: var(--bg) !important;
     z-index: 1001 !important;
+    /* Safe area inset for notched phones */
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
 
   .input-area {
     min-height: 56px !important;
     padding: 6px 8px !important;
     gap: 4px !important;
+    background: var(--bg) !important;
   }
 
   .input-area input:not([type="file"]) {
@@ -1270,30 +1283,35 @@ input  { font-family: inherit; }
   .profile-value-row { font-size: 15px !important; }
 
   /* ═══════════════════════════════════════════════════════════
-     STATUS COMPOSER — fix upload/post on mobile
+     STATUS COMPOSER — overlay covers full screen above nav
   ═══════════════════════════════════════════════════════════ */
   .status-fullscreen-overlay {
     position: fixed !important;
-    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
-    z-index: 9999 !important;
+    z-index: 20000 !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
+    background: #008069 !important;
   }
 
   .status-top-bar {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    padding: 16px !important;
+    padding: 14px 16px !important;
     flex-shrink: 0 !important;
-    z-index: 10000 !important;
+    z-index: 20001 !important;
   }
 
   .status-content-area {
-    flex: 1 !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -1304,35 +1322,60 @@ input  { font-family: inherit; }
 
   .status-textarea {
     font-size: 28px !important;
-    min-height: 120px !important;
+    min-height: 100px !important;
     width: 100% !important;
+    color: #fff !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    text-align: center !important;
+    resize: none !important;
   }
 
+  /* Bottom bar — always visible, send button on right */
   .status-bottom-bar {
-    padding: 12px 16px !important;
-    min-height: 72px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    position: relative !important;
+    min-height: 76px !important;
+    padding: 12px 70px 12px 16px !important;
+    background: rgba(0,0,0,0.35) !important;
+    z-index: 20001 !important;
+  }
+
+  .status-caption-input {
+    width: 100% !important;
+    font-size: 14px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border-radius: 20px !important;
+    padding: 10px 16px !important;
+    color: #fff !important;
+    border: none !important;
+    outline: none !important;
+  }
+
+  /* Send button — always tappable, vertically centred in bar */
+  .status-send-btn {
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    bottom: auto !important;
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
+    background: #25d366 !important;
+    color: #fff !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    position: relative !important;
-    flex-shrink: 0 !important;
-    z-index: 10001 !important;
-    /* Clear the bottom nav bar */
-    margin-bottom: 0 !important;
-    padding-bottom: 20px !important;
-  }
-
-  .status-caption-input { width: calc(100% - 64px) !important; font-size: 14px !important; }
-
-  .status-send-btn {
-    position: absolute !important;
-    right: 16px !important;
-    bottom: 12px !important;
-    width: 52px !important;
-    height: 52px !important;
-    z-index: 10002 !important;
+    z-index: 20002 !important;
     pointer-events: all !important;
     touch-action: manipulation !important;
+    border: none !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
   }
 
   .status-image-preview {
