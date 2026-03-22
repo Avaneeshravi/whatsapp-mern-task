@@ -3085,3 +3085,477 @@ button, a, .user-item, .nav-icon, .fchip, .hdr-btn, .icon-btn {
   transition: opacity 0.3s;
 }
 .send-btn:active::after { opacity: 1; }
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE FIXES — paste at the very BOTTOM of your App.css
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── GLOBAL MOBILE BASE ── */
+* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+input, textarea, select { font-size: 16px !important; }
+html, body { height: 100%; overflow: hidden; }
+
+/* ─────────────────────────────────────────────
+   FIX 1 — CHAT HEADER (bio wrapping on mobile)
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .chat-header {
+    height: 56px;
+    padding: 0 4px 0 4px !important;
+  }
+
+  .chat-header-left {
+    gap: 8px !important;
+    padding: 4px 4px !important;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .chat-header-info h4 {
+    font-size: 15px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+  }
+
+  /* FIX: bio/status — single line, no wrapping */
+  .online-status {
+    font-size: 11.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 160px !important;
+    display: block !important;
+  }
+
+  /* Shrink right-side icons */
+  .chat-header-right .icon-btn {
+    width: 34px !important;
+    height: 34px !important;
+    padding: 6px !important;
+  }
+
+  /* Avatar in header */
+  .chat-header .profile-avatar.small {
+    width: 36px !important;
+    height: 36px !important;
+    flex-shrink: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   FIX 2 — PROFILE PAGE (mobile)
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .profile-sidebar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    width: 100vw !important;
+    height: 100dvh !important;
+    z-index: 300;
+    overflow-y: auto;
+    display: flex !important;
+    flex-direction: column;
+    background: #f0f2f5;
+  }
+
+  /* Green header bar */
+  .profile-header {
+    height: 80px !important;
+    padding: 0 16px 14px !important;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .profile-header h2 {
+    font-size: 18px !important;
+    color: #fff;
+  }
+
+  /* Avatar — smaller on mobile */
+  .profile-pic-section {
+    padding: 20px 0 16px !important;
+  }
+
+  .profile-pic-wrapper {
+    width: 140px !important;
+    height: 140px !important;
+  }
+
+  /* Info sections */
+  .profile-section {
+    padding: 14px 20px !important;
+    margin-bottom: 0;
+  }
+
+  .profile-label {
+    font-size: 13px !important;
+  }
+
+  .profile-value-row span {
+    font-size: 16px !important;
+  }
+
+  .profile-hint {
+    font-size: 12.5px !important;
+    line-height: 1.5;
+  }
+
+  /* Phone number — show properly */
+  .profile-value-row {
+    align-items: center;
+    min-height: 36px;
+  }
+
+  /* Scroll area */
+  .profile-scroll {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   FIX 3 — SETTINGS PAGE (logout visible)
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .settings-sidebar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    width: 100vw !important;
+    height: 100dvh !important;
+    z-index: 300;
+    display: flex !important;
+    flex-direction: column;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  /* Green header */
+  .settings-header {
+    height: 80px !important;
+    padding: 0 16px 14px !important;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .settings-header h2 {
+    font-size: 18px !important;
+    color: #fff;
+  }
+
+  /* Search box */
+  .settings-search {
+    flex-shrink: 0;
+  }
+
+  /* Scrollable list — MUST include logout */
+  .settings-list {
+    flex: 1;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    /* Extra bottom padding so logout isn't hidden under nav */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .settings-item {
+    padding: 14px 16px !important;
+    min-height: 64px;
+  }
+
+  .settings-item-text .title {
+    font-size: 15px !important;
+  }
+
+  .settings-item-text .desc {
+    font-size: 12.5px !important;
+  }
+
+  /* Profile row in settings */
+  .settings-profile-row {
+    padding: 14px 16px !important;
+    min-height: 80px;
+  }
+
+  .settings-profile-row .profile-avatar {
+    width: 60px !important;
+    height: 60px !important;
+  }
+
+  /* Logout — always red, always visible */
+  .settings-item.text-red {
+    color: #ea0038 !important;
+    border-top: 8px solid #f0f2f5;
+    margin-top: 4px;
+  }
+
+  .settings-item.text-red .settings-item-icon,
+  .settings-item.text-red .settings-item-text .title {
+    color: #ea0038 !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   FIX 4 — STATUS COMPOSER (bottom nav overlapping)
+───────────────────────────────────────────── */
+.status-fullscreen-overlay {
+  position: fixed !important;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 9999 !important; /* above EVERYTHING including nav rail */
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  /* Hide bottom nav when status overlay is open */
+  body:has(.status-fullscreen-overlay) .nav-rail {
+    display: none !important;
+  }
+
+  .status-top-bar {
+    padding: 12px 16px !important;
+    padding-top: calc(12px + env(safe-area-inset-top)) !important;
+  }
+
+  .status-content-area {
+    flex: 1;
+    padding: 12px !important;
+  }
+
+  /* Textarea for text status */
+  .status-textarea {
+    font-size: 28px !important;
+    padding: 12px !important;
+  }
+
+  /* Bottom bar — above safe area */
+  .status-bottom-bar {
+    padding: 12px 16px !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    min-height: auto !important;
+    flex-shrink: 0;
+  }
+
+  /* Caption input */
+  .status-caption-input {
+    width: 75% !important;
+    font-size: 14px !important;
+    padding: 10px 16px !important;
+  }
+
+  /* Send button */
+  .status-send-btn {
+    width: 50px !important;
+    height: 50px !important;
+    right: 16px !important;
+    bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Status viewer — navigation arrows smaller */
+  .viewer-nav-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .viewer-nav-left  { left: 8px !important; }
+  .viewer-nav-right { right: 8px !important; }
+
+  /* Status progress bars */
+  .status-progress-container {
+    display: flex !important;
+    gap: 4px;
+    padding: 8px 12px !important;
+  }
+
+  /* Viewer reply area */
+  .viewer-reply-pill {
+    padding: 8px 12px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   FIX 5 — BOTTOM NAV RAIL (mobile)
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .nav-rail {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: calc(60px + env(safe-area-inset-bottom)) !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border) !important;
+    padding: 0 0 env(safe-area-inset-bottom) 0 !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    background: #fff !important;
+  }
+
+  .nav-rail-top {
+    flex-direction: row !important;
+    width: 100% !important;
+    height: 60px !important;
+    display: flex !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    gap: 0 !important;
+  }
+
+  .nav-rail-bottom { display: none !important; }
+
+  .nav-icon {
+    flex: 1 !important;
+    height: 60px !important;
+    width: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 0 !important;
+    gap: 3px !important;
+    color: #54656f !important;
+  }
+
+  .nav-icon.active { color: #111b21 !important; background: transparent !important; }
+  .nav-icon.active::after { display: none !important; }
+
+  .nav-label {
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: inherit !important;
+  }
+
+  /* Sidebar & status sidebar — above nav, below fixed overlays */
+  .sidebar,
+  .status-sidebar {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: calc(100dvh - 60px - env(safe-area-inset-bottom)) !important;
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  /* Chat active — hide sidebar, show chat full screen */
+  .app-container.chat-active .sidebar,
+  .app-container.chat-active .status-sidebar,
+  .app-container.chat-active .nav-rail {
+    display: none !important;
+  }
+
+  .app-container.chat-active .main-pane {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100vw !important;
+    height: 100dvh !important;
+    z-index: 200;
+  }
+
+  /* Main pane hidden when no chat active */
+  .app-container:not(.chat-active) .main-pane {
+    display: none !important;
+  }
+
+  /* Chat window full height */
+  .chat-window {
+    width: 100% !important;
+    height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  /* Messages area */
+  .messages-area {
+    flex: 1 !important;
+    min-height: 0 !important;
+    padding: 10px 3% 8px !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Input area sticks to bottom */
+  .input-area-wrapper {
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .input-area {
+    padding-bottom: calc(6px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Bubbles wider */
+  .message { max-width: 86% !important; }
+
+  /* Date divider text */
+  .date-divider span { font-size: 11px !important; }
+
+  /* User list rows */
+  .user-item { height: 70px !important; }
+
+  /* Filter row */
+  .filter-row { gap: 6px !important; padding: 6px 10px 5px !important; }
+  .fchip { font-size: 13px !important; padding: 6px 12px !important; }
+
+  /* Search box */
+  .search-wrap { padding: 6px 10px 0 !important; }
+
+  /* Back button in chat */
+  .mobile-back-btn { display: flex !important; }
+
+  /* Contact info as full overlay */
+  .contact-info-sidebar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw !important;
+    z-index: 500;
+    animation: slideFromRight 0.22s ease-out;
+  }
+
+  @keyframes slideFromRight {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+  }
+
+  /* New chat sidebar */
+  .new-chat-sidebar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    height: 100dvh !important;
+    width: 100vw !important;
+    z-index: 400;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   FIX 6 — SCROLLBARS
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar { display: none !important; }
+  * { scrollbar-width: none !important; }
+}
+
+/* ─────────────────────────────────────────────
+   FIX 7 — MESSAGE ANIMATION (snappy feel)
+───────────────────────────────────────────── */
+@keyframes msgSlideIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.msg-row { animation: msgSlideIn 0.15s ease both; }
+
+/* ─────────────────────────────────────────────
+   FIX 8 — INSTANT ACTIVE STATES (no delay)
+───────────────────────────────────────────── */
+button, a, .user-item, .nav-icon, .fchip {
+  touch-action: manipulation;
+}
+.user-item:active  { background: #ebebeb !important; }
+.send-btn:active   { transform: scale(0.91) !important; }
+.fchip:active      { opacity: 0.7; }
