@@ -187,20 +187,22 @@ app.post('/api/messages', async (req, res) => {
         const newMessage = new Message({
             sender, receiver, receiverType: receiverType || 'user', text, file, fileType, fileName, replyTo, isRead: false
         });
-        const savedMessage = await newMessage.save();
         
-        // Optionally emit via sockets for real-time sync if connected
+        // ⚡ INSTANT DELIVERY: Emit to sockets *before* MongoDB save to remove latency
         if (receiverType === 'group') {
             const group = await Group.findById(receiver);
             if (group && group.members) {
-                group.members.forEach(member => io.to(member).emit('receive_message', savedMessage));
+                group.members.forEach(member => io.to(member).emit('receive_message', newMessage));
             }
         } else {
-            io.to(receiver).emit('receive_message', savedMessage);
-            if (sender !== receiver) io.to(sender).emit('receive_message', savedMessage);
+            io.to(receiver).emit('receive_message', newMessage);
+            if (sender !== receiver) io.to(sender).emit('receive_message', newMessage);
         }
         
-        res.status(201).json(savedMessage);
+        // Background DB Save
+        newMessage.save().catch(err => console.error("Message Save API Error:", err));
+        
+        res.status(201).json(newMessage);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -318,21 +320,24 @@ io.on('connection', (socket) => {
         if ((!data.text && !data.file) || !data.sender || !data.receiver) return;
 
         const newMessage = new Message({ ...data, isRead: false });
-        const savedMessage = await newMessage.save();
 
+        // ⚡ INSTANT DELIVERY: Emit immediately before the slow database save
         if (data.receiverType === 'group') {
             const group = await Group.findById(data.receiver);
             if (group && group.members) {
                 group.members.forEach(member => {
-                    io.to(member).emit('receive_message', savedMessage);
+                    io.to(member).emit('receive_message', newMessage);
                 });
             }
         } else {
-            io.to(data.receiver).emit('receive_message', savedMessage);
+            io.to(data.receiver).emit('receive_message', newMessage);
             if (data.sender !== data.receiver) {
-                io.to(data.sender).emit('receive_message', savedMessage);
+                io.to(data.sender).emit('receive_message', newMessage);
             }
         }
+
+        // Save to Database Asynchronously
+        newMessage.save().catch(err => console.error("Socket Save Error:", err));
 
         // --- UPDATED ADVANCED AI LOGIC ---
         if (data.receiver === "Meta AI" && data.text) {
