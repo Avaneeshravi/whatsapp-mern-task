@@ -1157,12 +1157,29 @@ input  { font-family: inherit; }
     top: 0 !important;
     left: 0 !important;
     width: 100vw !important;
-    /* Leave 60px at bottom for nav */
     height: calc(100% - 60px) !important;
     max-width: none !important;
     min-width: 0 !important;
     overflow: hidden !important;
     z-index: 100 !important;
+  }
+
+  /* ── 4b. SETTINGS / PROFILE / NEW-CHAT panels — above nav + sidebar ──
+     These panels are rendered INSIDE .sidebar in the DOM, but must sit
+     visually on top of everything except the status overlay.
+     z-index 9500 beats the nav rail (9000) so all buttons are tappable. */
+  .settings-sidebar,
+  .profile-sidebar,
+  .new-chat-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: calc(100% - 60px) !important;
+    z-index: 9500 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
   }
 
   /* ── 5. HIDE MAIN PANE WHEN NO CHAT ACTIVE ── */
@@ -1294,31 +1311,26 @@ input  { font-family: inherit; }
     z-index: 5100 !important;
   }
 
-  /* ── 7. SETTINGS PAGE ── */
-  .settings-sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: calc(100% - 60px) !important;
-    z-index: 500 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-  }
-
+  /* ── 7. SETTINGS PAGE internals ──
+     .settings-sidebar position/z-index already set in section 4b above.
+     These rules cover the inner components only. */
   .settings-header {
     height: 76px !important;
     min-height: 76px !important;
     padding: 0 16px 12px !important;
     flex-shrink: 0 !important;
     background: #008069 !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    gap: 16px !important;
   }
   .settings-header h2         { font-size: 18px !important; font-weight: 600 !important; color: #fff !important; }
-  .settings-header .icon-btn  { color: #fff !important; display: flex !important; }
+  /* Back arrow button in settings header */
+  .settings-header .icon-btn,
+  .settings-header button      { color: #fff !important; display: flex !important; pointer-events: all !important; z-index: 9501 !important; position: relative !important; }
 
   .settings-search            { flex-shrink: 0 !important; padding: 8px 12px !important; }
-  .settings-profile-row       { padding: 12px 16px !important; }
+  .settings-profile-row       { padding: 12px 16px !important; cursor: pointer !important; pointer-events: all !important; }
   .settings-profile-row .profile-avatar { width: 58px !important; height: 58px !important; }
 
   .settings-list {
@@ -1328,33 +1340,35 @@ input  { font-family: inherit; }
     -webkit-overflow-scrolling: touch !important;
   }
 
-  .settings-item              { padding: 12px 16px !important; gap: 14px !important; }
+  /* Every settings row must be tappable */
+  .settings-item {
+    padding: 12px 16px !important;
+    gap: 14px !important;
+    cursor: pointer !important;
+    pointer-events: all !important;
+    position: relative !important;
+    z-index: 9501 !important;
+  }
   .settings-item-text .title  { font-size: 15px !important; }
   .settings-item-text .desc   { font-size: 13px !important; }
   .settings-detail-pane       { display: none !important; }
 
-  /* ── 8. PROFILE PAGE ── */
-  .profile-sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: calc(100% - 60px) !important;
-    z-index: 500 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-  }
-
+  /* ── 8. PROFILE PAGE internals ──
+     .profile-sidebar position/z-index already set in section 4b above. */
   .profile-header {
     height: 76px !important;
     min-height: 76px !important;
     padding: 0 16px 12px !important;
     flex-shrink: 0 !important;
     background: #008069 !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    gap: 16px !important;
   }
   .profile-header h2          { font-size: 18px !important; color: #fff !important; }
-  .profile-header .icon-btn   { color: #fff !important; display: flex !important; }
+  /* Back arrow button in profile header */
+  .profile-header .icon-btn,
+  .profile-header button       { color: #fff !important; display: flex !important; pointer-events: all !important; z-index: 9501 !important; position: relative !important; }
 
   .profile-scroll {
     flex: 1 1 0 !important;
@@ -1504,6 +1518,133 @@ input  { font-family: inherit; }
     height: 100% !important;
     z-index: 8000 !important;
     border-left: none !important;
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     11. STATUS VIEWER — reply button + viewer layout fix
+     The status viewer pane (.status-viewer-wrapper) lives inside
+     the main layout which is behind the sidebar on mobile.
+     When viewing a status, the fullscreen overlay takes over
+     (.status-fullscreen-overlay z-index 99000), so the viewer
+     controls must also be inside that overlay and fully tappable.
+  ════════════════════════════════════════════════════════════ */
+
+  /* Status viewer wrapper (right pane on desktop) — hidden on mobile,
+     the fullscreen overlay handles viewing instead */
+  .status-viewer-wrapper {
+    display: none !important;
+  }
+
+  /* Status list in the sidebar — rows must be tappable */
+  .status-list-scroll {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    pointer-events: all !important;
+  }
+
+  /* Each status row in the list */
+  .status-list-scroll .user-item,
+  .status-my-row {
+    pointer-events: all !important;
+    cursor: pointer !important;
+    position: relative !important;
+    z-index: 101 !important;
+  }
+
+  /* ── VIEWER FULLSCREEN CONTROLS ── */
+  /* When a status is being viewed in the fullscreen overlay,
+     the reply input bar at the bottom must be visible */
+  .status-fullscreen-overlay .status-bottom-bar {
+    /* Override the composer bottom bar with viewer bottom bar styles */
+    height: 72px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 72px 0 16px !important;
+    background: rgba(0,0,0,0.5) !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+    z-index: 99001 !important;
+  }
+
+  /* Reply input inside viewer */
+  .status-fullscreen-overlay .status-caption-input {
+    flex: 1 !important;
+    height: 42px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border: none !important;
+    border-radius: 21px !important;
+    padding: 0 16px !important;
+    color: #fff !important;
+    font-size: 15px !important;
+    outline: none !important;
+    pointer-events: all !important;
+    touch-action: manipulation !important;
+  }
+
+  /* Send / reply button — always tappable */
+  .status-fullscreen-overlay .status-send-btn {
+    position: absolute !important;
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
+    background: #25d366 !important;
+    color: #fff !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.4) !important;
+    z-index: 99002 !important;
+    pointer-events: all !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+    cursor: pointer !important;
+  }
+
+  /* Viewer top controls — back button and more options */
+  .viewer-top-left-actions,
+  .viewer-top-right-actions {
+    z-index: 99002 !important;
+    pointer-events: all !important;
+    touch-action: manipulation !important;
+  }
+
+  /* Viewer prev / next tap zones */
+  .viewer-nav-btn {
+    z-index: 99002 !important;
+    pointer-events: all !important;
+    touch-action: manipulation !important;
+    /* Bigger tap target on mobile */
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .viewer-nav-left  { left: 8px !important; }
+  .viewer-nav-right { right: 8px !important; }
+
+  /* Progress bars at the top of the viewer */
+  .status-fullscreen-overlay .status-top-bar {
+    padding: 10px 12px !important;
+    z-index: 99002 !important;
+    pointer-events: all !important;
+  }
+
+  /* My status "Add" button row */
+  .status-add-badge {
+    pointer-events: all !important;
+    z-index: 102 !important;
+    position: absolute !important;
+  }
+
+  /* Status section title */
+  .status-section-title {
+    flex-shrink: 0 !important;
+    padding: 12px 16px 8px !important;
+    font-size: 13px !important;
   }
 
 } /* end @media (max-width: 768px) */
