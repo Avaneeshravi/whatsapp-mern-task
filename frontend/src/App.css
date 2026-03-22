@@ -3559,3 +3559,174 @@ button, a, .user-item, .nav-icon, .fchip {
 .user-item:active  { background: #ebebeb !important; }
 .send-btn:active   { transform: scale(0.91) !important; }
 .fchip:active      { opacity: 0.7; }
+/* ═══════════════════════════════════════════════════════
+   MESSAGE ACTION FIXES — add at bottom of App.css
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Hide action buttons by default, show on hover ── */
+.msg-menu-btn,
+.msg-react-btn {
+  display: none !important;
+  cursor: pointer !important;
+  z-index: 20 !important;
+  position: absolute !important;
+}
+
+.message:hover .msg-menu-btn,
+.message:hover .msg-react-btn {
+  display: flex !important;
+}
+
+/* ── Menu button — top right of bubble ── */
+.msg-menu-btn {
+  top: 2px !important;
+  right: 4px !important;
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--t2) !important;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.9) 40%, #fff) !important;
+}
+
+.message.sent .msg-menu-btn {
+  background: linear-gradient(90deg, transparent, var(--sent-bg) 40%, var(--sent-bg)) !important;
+}
+
+/* ── React button — to the left of menu button ── */
+.msg-react-btn {
+  top: 2px !important;
+  right: 30px !important;
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--t2) !important;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.9) 40%, #fff) !important;
+}
+
+.message.sent .msg-react-btn {
+  background: linear-gradient(90deg, transparent, var(--sent-bg) 40%, var(--sent-bg)) !important;
+}
+
+/* On image-only messages */
+.message.image-only .msg-menu-btn {
+  right: 6px !important;
+  top: 4px !important;
+  background: rgba(0,0,0,0.45) !important;
+  color: white !important;
+}
+
+.message.image-only .msg-react-btn {
+  right: 36px !important;
+  top: 4px !important;
+  background: rgba(0,0,0,0.45) !important;
+  color: white !important;
+}
+
+/* ── Dropdown menu ── */
+.dropdown-menu {
+  position: absolute !important;
+  z-index: 1000 !important;
+  background: var(--white) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.12) !important;
+  padding: 6px 0 !important;
+  min-width: 180px !important;
+  top: 28px !important;
+}
+
+.dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+  padding: 10px 18px !important;
+  font-size: 14.5px !important;
+  color: var(--t1) !important;
+  cursor: pointer !important;
+  transition: background 0.12s !important;
+  gap: 0 !important;
+  user-select: none;
+}
+
+.dropdown-item:hover {
+  background: var(--hover) !important;
+}
+
+/* Sent message dropdown — right aligned */
+.row-sent .dropdown-menu {
+  right: 0 !important;
+  left: auto !important;
+}
+
+/* Received message dropdown — left aligned */
+.row-recv .dropdown-menu {
+  left: 0 !important;
+  right: auto !important;
+}
+
+/* ── Reaction picker ── */
+.reaction-picker-container {
+  position: absolute !important;
+  z-index: 1001 !important;
+  top: -320px !important;
+}
+
+.reaction-picker-container.picker-right {
+  right: 0 !important;
+  left: auto !important;
+}
+
+.reaction-picker-container.picker-left {
+  left: 0 !important;
+  right: auto !important;
+}
+
+/* ── Global overlay — sits BELOW dropdowns ── */
+.global-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 50 !important;
+  cursor: default !important;
+  background: transparent !important;
+}
+
+/* ── msg-row needs position:relative for absolute children ── */
+.msg-row {
+  position: relative !important;
+}
+
+/* ── Message bubble needs position:relative too ── */
+.message {
+  position: relative !important;
+}
+
+/* ── Mobile: show buttons on tap (touch devices) ── */
+@media (max-width: 768px) {
+  .msg-menu-btn,
+  .msg-react-btn {
+    display: flex !important;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .message:active .msg-menu-btn,
+  .message:active .msg-react-btn,
+  .message.tapped .msg-menu-btn,
+  .message.tapped .msg-react-btn {
+    opacity: 1 !important;
+  }
+
+  .dropdown-menu {
+    min-width: 160px !important;
+    font-size: 14px !important;
+  }
+
+  .reaction-picker-container {
+    top: -280px !important;
+  }
+}
