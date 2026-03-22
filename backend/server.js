@@ -17,13 +17,27 @@ const io = new Server(server, {
     maxHttpBufferSize: 1e8
 });
 
-console.log('GEMINI_API_KEY loaded:', !!process.env.GEMINI_API_KEY);
+// --- AI CONFIGURATION ---
+console.log('🔑 GEMINI_API_KEY loaded:', !!process.env.GEMINI_API_KEY);
+
 let aiModel = null;
 
 async function initAI() {
-    if (!process.env.GEMINI_API_KEY) { console.error('GEMINI_API_KEY is not set!'); return; }
+    if (!process.env.GEMINI_API_KEY) {
+        console.error('❌ GEMINI_API_KEY is not set!');
+        return;
+    }
+
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const modelsToTry = ['gemini-2.5-flash','gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash','gemini-1.5-pro'];
+
+    const modelsToTry = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+    ];
+
     for (const modelName of modelsToTry) {
         try {
             const model = genAI.getGenerativeModel({
@@ -31,23 +45,35 @@ async function initAI() {
                 systemInstruction: "You are a helpful AI assistant. Keep your responses extremely short, direct, and natural. Do not mention that you are a clone or who built you unless explicitly asked. Avoid marketing language. Just answer the user's question simply."
             });
             const test = await model.generateContent('Say "ok" in one word.');
-            if (test.response.text()) { aiModel = model; console.log('Gemini AI ready:', modelName); break; }
-        } catch (err) { console.warn('Model', modelName, 'failed:', err.message); }
+            const testText = test.response.text();
+            if (testText) {
+                aiModel = model;
+                console.log(`✅ Gemini AI ready — model: ${modelName}`);
+                break;
+            }
+        } catch (err) {
+            console.warn(`⚠️  Model ${modelName} failed: ${err.message}`);
+        }
     }
-    if (!aiModel) console.error('All Gemini models failed. Check your API key quota.');
+
+    if (!aiModel) {
+        console.error('❌ All Gemini models failed. Check your API key quota.');
+    }
 }
+
 initAI();
 
+// --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB Connected"))
-    .catch(err => console.error("Connection Error:", err));
+    .then(() => console.log("✅ MongoDB Connected Successfully"))
+    .catch(err => console.error("❌ Connection Error:", err));
 
-// mobile/email are NOT required so existing users without them can still log in
+// --- MODELS ---
 const User = mongoose.model('User', new mongoose.Schema({
     username:    { type: String, unique: true, required: true },
     password:    { type: String, required: true },
-    mobile:      { type: String, default: '' },
-    email:       { type: String, default: '' },
+    mobile:      { type: String, required: true },
+    email:       { type: String },
     displayName: { type: String },
     bio:         { type: String, default: 'Hey there! I am using WhatsApp.' },
     profilePic:  { type: String },
@@ -91,45 +117,6 @@ const StatusUpdate = mongoose.model('StatusUpdate', new mongoose.Schema({
 app.get('/',       (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 app.get('/health', (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 
-// REGISTER — new accounts only
-app.post('/api/register', async (req, res) => {
-    const { username, password, mobile, email } = req.body;
-    if (!username || !password || !mobile) {
-        return res.status(400).json({ error: 'Username, password and mobile are required.' });
-    }
-    try {
-        const existing = await User.findOne({ username });
-        if (existing) return res.status(409).json({ error: 'Username already taken. Please choose another.' });
-        const user = new User({ username, password, mobile, email });
-        await user.save();
-        res.status(201).json(user);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// LOGIN — existing users only, never creates accounts
-app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
-    try {
-        const user = await User.findOne({ username });
-        if (!user) return res.status(404).json({ error: 'Account not found. Please register first.' });
-        if (user.password !== password) return res.status(401).json({ error: 'Incorrect password.' });
-        res.status(200).json(user);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// LEGACY /api/auth — login-only alias for backwards compatibility
-app.post('/api/auth', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
-    try {
-        const user = await User.findOne({ username });
-        if (!user) return res.status(404).json({ error: 'Account not found. Please register first.' });
-        if (user.password !== password) return res.status(401).json({ error: 'Incorrect password.' });
-        res.status(200).json(user);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.post('/api/status', async (req, res) => {
     try {
         const { username, type, content, bgColor, caption } = req.body;
@@ -145,7 +132,10 @@ app.put('/api/status/view', async (req, res) => {
         const status = await StatusUpdate.findById(statusId);
         if (status && status.username !== viewerUsername) {
             if (!status.viewers) status.viewers = [];
-            if (!status.viewers.includes(viewerUsername)) { status.viewers.push(viewerUsername); await status.save(); }
+            if (!status.viewers.includes(viewerUsername)) {
+                status.viewers.push(viewerUsername);
+                await status.save();
+            }
         }
         res.json({ success: true, viewers: status?.viewers || [] });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -160,13 +150,32 @@ app.get('/api/status', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/auth', async (req, res) => {
+    const { username, password, mobile, email } = req.body;
+    try {
+        let user = await User.findOne({ username });
+        if (!user) {
+            user = new User({ username, password, mobile: mobile || '0000000000', email });
+            await user.save();
+        } else if (user.password !== password) {
+            return res.status(401).json({ error: "Invalid password" });
+        }
+        res.status(200).json(user);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/users/:currentUser', async (req, res) => {
     try {
         const users = await User.find({}, 'username mobile isOnline displayName bio profilePic');
         const usersWithNotifications = await Promise.all(users.map(async (u) => {
-            const unreadCount = await Message.countDocuments({ sender: u.username, receiver: req.params.currentUser, isRead: false });
+            const unreadCount = await Message.countDocuments({
+                sender: u.username, receiver: req.params.currentUser, isRead: false
+            });
             const lastMessage = await Message.findOne({
-                $or: [{ sender: u.username, receiver: req.params.currentUser }, { sender: req.params.currentUser, receiver: u.username }]
+                $or: [
+                    { sender: u.username, receiver: req.params.currentUser },
+                    { sender: req.params.currentUser, receiver: u.username }
+                ]
             }).sort({ timestamp: -1 });
             return { ...u._doc, unreadCount, lastMessage };
         }));
@@ -181,7 +190,11 @@ app.put('/api/users/:username/profile', async (req, res) => {
         if (displayName !== undefined) updateFields.displayName = displayName;
         if (bio !== undefined) updateFields.bio = bio;
         if (profilePic !== undefined) updateFields.profilePic = profilePic;
-        const user = await User.findOneAndUpdate({ username: req.params.username }, { $set: updateFields }, { new: true });
+        const user = await User.findOneAndUpdate(
+            { username: req.params.username },
+            { $set: updateFields },
+            { new: true }
+        );
         res.json(user);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -190,7 +203,11 @@ app.get('/api/messages/:u1/:u2', async (req, res) => {
     try {
         const { u1, u2 } = req.params;
         const messages = await Message.find({
-            $or: [{ sender: u1, receiver: u2 }, { sender: u2, receiver: u1 }, { receiver: u2, receiverType: 'group' }]
+            $or: [
+                { sender: u1, receiver: u2 },
+                { sender: u2, receiver: u1 },
+                { receiver: u2, receiverType: 'group' }
+            ]
         }).sort({ timestamp: 1 });
         res.json(messages);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -199,8 +216,12 @@ app.get('/api/messages/:u1/:u2', async (req, res) => {
 app.post('/api/messages', async (req, res) => {
     try {
         const { sender, receiver, receiverType, text, file, fileType, fileName, replyTo } = req.body;
-        if ((!text && !file) || !sender || !receiver) return res.status(400).json({ error: 'Invalid request' });
-        const newMessage = new Message({ sender, receiver, receiverType: receiverType || 'user', text, file, fileType, fileName, replyTo, isRead: false });
+        if ((!text && !file) || !sender || !receiver)
+            return res.status(400).json({ error: 'Invalid request' });
+        const newMessage = new Message({
+            sender, receiver, receiverType: receiverType || 'user',
+            text, file, fileType, fileName, replyTo, isRead: false
+        });
         const savedMessage = await newMessage.save();
         if (receiverType === 'group') {
             const group = await Group.findById(receiver);
@@ -227,9 +248,19 @@ app.get('/api/groups/:username', async (req, res) => {
         const groups = await Group.find({ members: req.params.username });
         const mappedGroups = await Promise.all(groups.map(async g => {
             const groupId = g._id.toString();
-            const unreadCount = await Message.countDocuments({ receiver: groupId, receiverType: 'group', isRead: false, sender: { $ne: req.params.username } });
-            const lastMessage = await Message.findOne({ receiver: groupId, receiverType: 'group' }).sort({ timestamp: -1 });
-            return { _id: g._id, username: groupId, displayName: g.name, profilePic: g.icon, isGroup: true, bio: `Group • ${g.members.length} members`, members: g.members, admin: g.admin, unreadCount, lastMessage };
+            const unreadCount = await Message.countDocuments({
+                receiver: groupId, receiverType: 'group',
+                isRead: false, sender: { $ne: req.params.username }
+            });
+            const lastMessage = await Message.findOne({
+                receiver: groupId, receiverType: 'group'
+            }).sort({ timestamp: -1 });
+            return {
+                _id: g._id, username: groupId,
+                displayName: g.name, profilePic: g.icon,
+                isGroup: true, bio: `Group • ${g.members.length} members`,
+                members: g.members, admin: g.admin, unreadCount, lastMessage
+            };
         }));
         res.json(mappedGroups);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -259,7 +290,7 @@ app.put('/api/groups/:id/add', async (req, res) => {
 
 // --- SOCKET LOGIC ---
 io.on('connection', (socket) => {
-    console.log('Connected:', socket.id);
+    console.log(`🔌 Connected: ${socket.id}`);
 
     socket.on('user_login', async (username) => {
         socket.userId = username;
@@ -275,10 +306,7 @@ io.on('connection', (socket) => {
     socket.on('mark_read', async ({ messageId, sender }) => {
         try {
             await Message.findByIdAndUpdate(messageId, { isRead: true });
-            // Tell sender: this message is now read (turns ticks blue)
             io.to(sender).emit('message_read_confirmed', messageId);
-            // Also tell sender to refresh their sidebar (unread count update)
-            io.to(sender).emit('user_status_update');
         } catch (err) { console.error("Read Error:", err); }
     });
 
@@ -299,57 +327,67 @@ io.on('connection', (socket) => {
 
     socket.on('send_message', async (data) => {
         if ((!data.text && !data.file) || !data.sender || !data.receiver) return;
+
         try {
-            const { tempId, ...msgData } = data;
-
-            // Save to DB
-            const newMessage = new Message({ ...msgData, isRead: false });
+            const newMessage = new Message({ ...data, isRead: false });
             const savedMessage = await newMessage.save();
-
-            // Build the payload — include tempId so sender can swap optimistic msg
-            const payload = savedMessage.toObject();
-            if (tempId) payload.tempId = tempId;
 
             if (data.receiverType === 'group') {
                 const group = await Group.findById(data.receiver);
-                if (group?.members) group.members.forEach(m => io.to(m).emit('receive_message', payload));
+                if (group?.members) group.members.forEach(m => io.to(m).emit('receive_message', savedMessage));
             } else {
-                // Send to receiver (no tempId needed for them)
-                io.to(data.receiver).emit('receive_message', savedMessage.toObject());
-                // Send confirmed message back to sender with tempId so they can replace optimistic msg
-                if (data.sender !== data.receiver) io.to(data.sender).emit('message_confirmed', payload);
+                io.to(data.receiver).emit('receive_message', savedMessage);
+                if (data.sender !== data.receiver) io.to(data.sender).emit('receive_message', savedMessage);
             }
 
-            // META AI
+            // --- META AI LOGIC ---
             if (data.receiver === "Meta AI" && data.text) {
                 io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: true });
+
                 try {
-                    if (!aiModel) throw new Error('AI not initialized');
+                    if (!aiModel) throw new Error('AI not initialized — check GEMINI_API_KEY');
+
                     const result = await aiModel.generateContent(data.text);
                     const aiText = result.response.text();
-                    const aiReply = new Message({ sender: "Meta AI", receiver: data.sender, text: aiText, isRead: false });
+
+                    const aiReply = new Message({
+                        sender: "Meta AI",
+                        receiver: data.sender,
+                        text: aiText,
+                        isRead: false
+                    });
                     await aiReply.save();
+
                     io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: false });
-                    io.to(data.sender).emit('receive_message', aiReply.toObject());
+                    io.to(data.sender).emit('receive_message', aiReply);
+
                 } catch (error) {
-                    console.error("Gemini API Error:", error.message);
+                    console.error("❌ Gemini API Error:", error.message);
                     io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: false });
-                    const errorReply = new Message({ sender: "Meta AI", receiver: data.sender, text: "I'm having a minor update in my brain. Try asking me again!", isRead: false });
+
+                    const errorReply = new Message({
+                        sender: "Meta AI",
+                        receiver: data.sender,
+                        text: "I'm having a minor update in my brain. Try asking me again!",
+                        isRead: false
+                    });
                     await errorReply.save();
-                    io.to(data.sender).emit('receive_message', errorReply.toObject());
+                    io.to(data.sender).emit('receive_message', errorReply);
                 }
             }
-        } catch (err) { console.error('send_message error:', err.message); }
+        } catch (err) {
+            console.error('❌ send_message error:', err.message);
+        }
     });
 
     socket.on('disconnect', async () => {
         if (socket.userId) {
             await User.findOneAndUpdate({ username: socket.userId }, { isOnline: false });
             io.emit('user_status_update', { username: socket.userId, isOnline: false });
-            console.log('Disconnected:', socket.userId);
+            console.log(`👤 Disconnected: ${socket.userId}`);
         }
     });
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log('Server running on port', PORT));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
