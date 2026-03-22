@@ -223,38 +223,62 @@ function App() {
       axios.get(`${API_URL}/api/messages/${user}/${selectedUser}`)
         .then(res => {
           setMessages(res.data);
-          res.data.forEach(m => {
-            if ((m.sender === selectedUser || (m.receiverType === 'group' && m.receiver === selectedUser && m.sender !== user)) && !m.isRead)
-              socket.emit('mark_read', { messageId: m._id, sender: m.sender });
+          // Mark all unread messages as read now that user has opened this chat.
+          // This clears the badge and turns sender's ticks blue.
+          const unreadMsgs = res.data.filter(m =>
+            !m.isRead && (
+              m.sender === selectedUser ||
+              (m.receiverType === 'group' && m.receiver === selectedUser && m.sender !== user)
+            )
+          );
+          unreadMsgs.forEach(m => {
+            socket.emit('mark_read', { messageId: m._id, sender: m.sender });
           });
+          // Refresh sidebar to clear badge immediately after opening chat
           fetchUsers();
         });
     }
   }, [selectedUser, user]);
 
+  // Refs keep latest values accessible inside socket handlers without stale closures
+  const selectedUserRef = useRef(selectedUser);
+  const userRef = useRef(user);
+  useEffect(() => { selectedUserRef.current = selectedUser; }, [selectedUser]);
+  useEffect(() => { userRef.current = user; }, [user]);
+
   useEffect(() => {
     socket.on('receive_message', (msg) => {
-      if (msg.sender === 'Meta AI' && selectedUser === 'Meta AI') setIsTyping(false);
+      const cu = userRef.current;
+      const csu = selectedUserRef.current;
 
-      const isDirectMatch = (msg.sender === user && msg.receiver === selectedUser) ||
-        (msg.sender === selectedUser && msg.receiver === user);
-      const isGroupMatch = msg.receiverType === 'group' && msg.receiver === selectedUser;
+      if (msg.sender === 'Meta AI' && csu === 'Meta AI') setIsTyping(false);
+
+      const isDirectMatch =
+        (msg.sender === cu && msg.receiver === csu) ||
+        (msg.sender === csu && msg.receiver === cu);
+      const isGroupMatch = msg.receiverType === 'group' && msg.receiver === csu;
 
       if (isDirectMatch || isGroupMatch) {
         setMessages(prev => {
-          // Don't add if already confirmed via message_confirmed (avoid duplicate)
+          // Dedup: don't add if message_confirmed already swapped a temp in with this _id
           const alreadyExists = prev.some(m => m._id === msg._id && !String(m._id).startsWith('temp_'));
           if (alreadyExists) return prev;
           return [...prev, msg];
         });
-        if ((msg.receiver === user && selectedUser === msg.sender) || (msg.receiverType === 'group' && msg.receiver === selectedUser && msg.sender !== user))
+        // Mark as read ONLY if the receiver currently has this chat open
+        // This ensures: badge stays until they open the chat, ticks only go blue when they see it
+        const receiverHasChatOpen =
+          (msg.receiver === cu && csu === msg.sender) ||
+          (msg.receiverType === 'group' && msg.receiver === csu && msg.sender !== cu);
+        if (receiverHasChatOpen) {
           socket.emit('mark_read', { messageId: msg._id, sender: msg.sender });
+        }
       }
 
-      if (msg.receiver === user || msg.sender === user || msg.receiverType === 'group') fetchUsers();
+      // Always refresh sidebar so badge + last message update for receiver
+      fetchUsers();
     });
 
-    // Swap the optimistic temp message with the real confirmed one from server
     socket.on('message_confirmed', (confirmedMsg) => {
       setMessages(prev =>
         prev.map(m => m._id === confirmedMsg.tempId ? { ...confirmedMsg, _id: confirmedMsg._id } : m)
@@ -263,7 +287,7 @@ function App() {
     });
 
     socket.on('display_typing', ({ sender, isTyping }) => {
-      if (sender === selectedUser) setIsOppositeUserTyping(isTyping);
+      if (sender === selectedUserRef.current) setIsOppositeUserTyping(isTyping);
       setTypingUsers(prev => ({ ...prev, [sender]: isTyping }));
     });
     socket.on('message_read_confirmed', (id) => {
@@ -286,7 +310,7 @@ function App() {
       socket.off('user_status_update');
       socket.off('message_deleted');
     };
-  }, [user, selectedUser]);
+  }, []); // Empty deps — refs keep values current without re-registering
 
   const navigateStatus = useCallback((dir) => {
     setViewingStatuses(prev => {
