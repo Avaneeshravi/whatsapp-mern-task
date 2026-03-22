@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 const app = express();
 app.use(cors());
@@ -18,26 +18,50 @@ const io = new Server(server, {
 });
 
 // --- AI CONFIGURATION ---
+console.log('🔑 GEMINI_API_KEY loaded:', !!process.env.GEMINI_API_KEY);
+
 let aiModel = null;
 
-if (process.env.GEMINI_API_KEY) {
-    try {
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        aiModel = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
-            systemInstruction: "You are Meta AI, a helpful WhatsApp assistant. Keep responses short, friendly and conversational — 1 to 3 sentences unless asked for more. Never say you are Gemini or made by Google.",
-            generationConfig: {
-                maxOutputTokens: 400,
-                temperature: 0.8,
-            }
-        });
-        console.log("✅ Gemini AI initialized with gemini-1.5-flash");
-    } catch (err) {
-        console.error("❌ Failed to initialize Gemini AI:", err.message);
+async function initAI() {
+    if (!process.env.GEMINI_API_KEY) {
+        console.error('❌ GEMINI_API_KEY is not set!');
+        return;
     }
-} else {
-    console.warn("⚠️  GEMINI_API_KEY not found — Meta AI will not work");
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    const modelsToTry = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+    ];
+
+    for (const modelName of modelsToTry) {
+        try {
+            const model = genAI.getGenerativeModel({
+                model: modelName,
+                systemInstruction: "You are a helpful AI assistant. Keep your responses extremely short, direct, and natural. Do not mention that you are a clone or who built you unless explicitly asked. Avoid marketing language. Just answer the user's question simply."
+            });
+            const test = await model.generateContent('Say "ok" in one word.');
+            const testText = test.response.text();
+            if (testText) {
+                aiModel = model;
+                console.log(`✅ Gemini AI ready — model: ${modelName}`);
+                break;
+            }
+        } catch (err) {
+            console.warn(`⚠️  Model ${modelName} failed: ${err.message}`);
+        }
+    }
+
+    if (!aiModel) {
+        console.error('❌ All Gemini models failed. Check your API key quota.');
+    }
 }
+
+initAI();
 
 // --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
@@ -46,54 +70,53 @@ mongoose.connect(process.env.MONGO_URI)
 
 // --- MODELS ---
 const User = mongoose.model('User', new mongoose.Schema({
-    username: { type: String, unique: true, required: true },
-    password: { type: String, required: true },
-    mobile: { type: String, required: true },
-    email: { type: String },
+    username:    { type: String, unique: true, required: true },
+    password:    { type: String, required: true },
+    mobile:      { type: String, required: true },
+    email:       { type: String },
     displayName: { type: String },
-    bio: { type: String, default: 'Hey there! I am using WhatsApp.' },
-    profilePic: { type: String },
-    isOnline: { type: Boolean, default: false }
+    bio:         { type: String, default: 'Hey there! I am using WhatsApp.' },
+    profilePic:  { type: String },
+    isOnline:    { type: Boolean, default: false }
 }));
 
 const Message = mongoose.model('Message', new mongoose.Schema({
-    sender: { type: String, required: true },
-    receiver: { type: String, required: true },
+    sender:       { type: String, required: true },
+    receiver:     { type: String, required: true },
     receiverType: { type: String, default: 'user' },
-    text: { type: String },
-    file: { type: String },
-    fileType: { type: String },
-    fileName: { type: String },
-    isRead: { type: Boolean, default: false },
-    reaction: { type: String },
-    replyTo: { type: Object },
-    isEdited: { type: Boolean, default: false },
-    timestamp: { type: Date, default: Date.now }
+    text:         { type: String },
+    file:         { type: String },
+    fileType:     { type: String },
+    fileName:     { type: String },
+    isRead:       { type: Boolean, default: false },
+    reaction:     { type: String },
+    replyTo:      { type: Object },
+    isEdited:     { type: Boolean, default: false },
+    timestamp:    { type: Date, default: Date.now }
 }));
 
 const Group = mongoose.model('Group', new mongoose.Schema({
-    name: { type: String, required: true },
-    icon: { type: String, default: '' },
-    members: [{ type: String }],
-    admin: { type: String },
+    name:      { type: String, required: true },
+    icon:      { type: String, default: '' },
+    members:   [{ type: String }],
+    admin:     { type: String },
     createdAt: { type: Date, default: Date.now }
 }));
 
 const StatusUpdate = mongoose.model('StatusUpdate', new mongoose.Schema({
-    username: { type: String, required: true },
-    type: { type: String, enum: ['image', 'text'], required: true },
-    content: { type: String, required: true },
-    bgColor: { type: String },
-    caption: { type: String },
-    viewers: [{ type: String }],
+    username:  { type: String, required: true },
+    type:      { type: String, enum: ['image', 'text'], required: true },
+    content:   { type: String, required: true },
+    bgColor:   { type: String },
+    caption:   { type: String },
+    viewers:   [{ type: String }],
     createdAt: { type: Date, default: Date.now, expires: 86400 }
 }));
 
-// --- HEALTH CHECK ROUTE (keeps Render awake) ---
-app.get('/', (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
+// --- ROUTES ---
+app.get('/',       (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 app.get('/health', (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 
-// --- ROUTES ---
 app.post('/api/status', async (req, res) => {
     try {
         const { username, type, content, bgColor, caption } = req.body;
@@ -193,9 +216,8 @@ app.get('/api/messages/:u1/:u2', async (req, res) => {
 app.post('/api/messages', async (req, res) => {
     try {
         const { sender, receiver, receiverType, text, file, fileType, fileName, replyTo } = req.body;
-        if ((!text && !file) || !sender || !receiver) {
+        if ((!text && !file) || !sender || !receiver)
             return res.status(400).json({ error: 'Invalid request' });
-        }
         const newMessage = new Message({
             sender, receiver, receiverType: receiverType || 'user',
             text, file, fileType, fileName, replyTo, isRead: false
@@ -203,9 +225,7 @@ app.post('/api/messages', async (req, res) => {
         const savedMessage = await newMessage.save();
         if (receiverType === 'group') {
             const group = await Group.findById(receiver);
-            if (group?.members) {
-                group.members.forEach(member => io.to(member).emit('receive_message', savedMessage));
-            }
+            if (group?.members) group.members.forEach(m => io.to(m).emit('receive_message', savedMessage));
         } else {
             io.to(receiver).emit('receive_message', savedMessage);
             if (sender !== receiver) io.to(sender).emit('receive_message', savedMessage);
@@ -236,16 +256,10 @@ app.get('/api/groups/:username', async (req, res) => {
                 receiver: groupId, receiverType: 'group'
             }).sort({ timestamp: -1 });
             return {
-                _id: g._id,
-                username: groupId,
-                displayName: g.name,
-                profilePic: g.icon,
-                isGroup: true,
-                bio: `Group • ${g.members.length} members`,
-                members: g.members,
-                admin: g.admin,
-                unreadCount,
-                lastMessage
+                _id: g._id, username: groupId,
+                displayName: g.name, profilePic: g.icon,
+                isGroup: true, bio: `Group • ${g.members.length} members`,
+                members: g.members, admin: g.admin, unreadCount, lastMessage
             };
         }));
         res.json(mappedGroups);
@@ -274,58 +288,6 @@ app.put('/api/groups/:id/add', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- HELPER: Send Meta AI reply ---
-async function sendMetaAIReply(senderUsername, userText) {
-    // Fire typing indicator immediately
-    io.to(senderUsername).emit('display_typing', { sender: "Meta AI", isTyping: true });
-
-    try {
-        if (!aiModel) {
-            throw new Error("AI not initialized — GEMINI_API_KEY missing");
-        }
-
-        console.log(`📨 Meta AI ← ${senderUsername}: "${userText}"`);
-        const result = await aiModel.generateContent(userText);
-        const aiText = result.response.text().trim();
-        console.log(`✅ Meta AI → ${senderUsername}: "${aiText.substring(0, 80)}..."`);
-
-        const aiReply = new Message({
-            sender: "Meta AI",
-            receiver: senderUsername,
-            text: aiText,
-            isRead: false
-        });
-        await aiReply.save();
-
-        io.to(senderUsername).emit('display_typing', { sender: "Meta AI", isTyping: false });
-        io.to(senderUsername).emit('receive_message', aiReply);
-
-    } catch (error) {
-        console.error("❌ Meta AI Error:", error.message);
-
-        io.to(senderUsername).emit('display_typing', { sender: "Meta AI", isTyping: false });
-
-        // Give a meaningful error based on what failed
-        let errorText = "Sorry, I'm unavailable right now. Try again in a moment!";
-        if (error.message?.includes('API_KEY') || error.message?.includes('initialized')) {
-            errorText = "⚠️ Meta AI is not configured. Ask the admin to set the GEMINI_API_KEY.";
-        } else if (error.message?.includes('429') || error.message?.includes('quota')) {
-            errorText = "⚠️ I'm getting too many requests right now. Please wait a minute and try again!";
-        } else if (error.message?.includes('SAFETY')) {
-            errorText = "⚠️ I can't respond to that message due to safety guidelines.";
-        }
-
-        const errorReply = new Message({
-            sender: "Meta AI",
-            receiver: senderUsername,
-            text: errorText,
-            isRead: false
-        });
-        await errorReply.save();
-        io.to(senderUsername).emit('receive_message', errorReply);
-    }
-}
-
 // --- SOCKET LOGIC ---
 io.on('connection', (socket) => {
     console.log(`🔌 Connected: ${socket.id}`);
@@ -335,7 +297,6 @@ io.on('connection', (socket) => {
         socket.join(username);
         await User.findOneAndUpdate({ username }, { isOnline: true });
         io.emit('user_status_update', { username, isOnline: true });
-        console.log(`👤 User logged in: ${username}`);
     });
 
     socket.on('typing_status', ({ sender, receiver, isTyping }) => {
@@ -346,14 +307,14 @@ io.on('connection', (socket) => {
         try {
             await Message.findByIdAndUpdate(messageId, { isRead: true });
             io.to(sender).emit('message_read_confirmed', messageId);
-        } catch (err) { console.error("Read Error:", err.message); }
+        } catch (err) { console.error("Read Error:", err); }
     });
 
     socket.on('delete_message', async (messageId) => {
         try {
             await Message.findByIdAndDelete(messageId);
             io.emit('message_deleted', messageId);
-        } catch (err) { console.error("Delete Error:", err.message); }
+        } catch (err) { console.error("Delete Error:", err); }
     });
 
     socket.on('react_message', async ({ messageId, reaction, receiver, sender }) => {
@@ -361,7 +322,7 @@ io.on('connection', (socket) => {
             await Message.findByIdAndUpdate(messageId, { reaction });
             io.to(receiver).emit('message_reacted', { messageId, reaction });
             if (sender !== receiver) io.to(sender).emit('message_reacted', { messageId, reaction });
-        } catch (err) { console.error("React Error:", err.message); }
+        } catch (err) { console.error("React Error:", err); }
     });
 
     socket.on('send_message', async (data) => {
@@ -371,26 +332,51 @@ io.on('connection', (socket) => {
             const newMessage = new Message({ ...data, isRead: false });
             const savedMessage = await newMessage.save();
 
-            // Deliver message
             if (data.receiverType === 'group') {
                 const group = await Group.findById(data.receiver);
-                if (group?.members) {
-                    group.members.forEach(member => io.to(member).emit('receive_message', savedMessage));
-                }
+                if (group?.members) group.members.forEach(m => io.to(m).emit('receive_message', savedMessage));
             } else {
                 io.to(data.receiver).emit('receive_message', savedMessage);
-                if (data.sender !== data.receiver) {
-                    io.to(data.sender).emit('receive_message', savedMessage);
+                if (data.sender !== data.receiver) io.to(data.sender).emit('receive_message', savedMessage);
+            }
+
+            // --- META AI LOGIC ---
+            if (data.receiver === "Meta AI" && data.text) {
+                io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: true });
+
+                try {
+                    if (!aiModel) throw new Error('AI not initialized — check GEMINI_API_KEY');
+
+                    const result = await aiModel.generateContent(data.text);
+                    const aiText = result.response.text();
+
+                    const aiReply = new Message({
+                        sender: "Meta AI",
+                        receiver: data.sender,
+                        text: aiText,
+                        isRead: false
+                    });
+                    await aiReply.save();
+
+                    io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: false });
+                    io.to(data.sender).emit('receive_message', aiReply);
+
+                } catch (error) {
+                    console.error("❌ Gemini API Error:", error.message);
+                    io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: false });
+
+                    const errorReply = new Message({
+                        sender: "Meta AI",
+                        receiver: data.sender,
+                        text: "I'm having a minor update in my brain. Try asking me again!",
+                        isRead: false
+                    });
+                    await errorReply.save();
+                    io.to(data.sender).emit('receive_message', errorReply);
                 }
             }
-
-            // Meta AI — handle asynchronously so it doesn't block
-            if (data.receiver === "Meta AI" && data.text) {
-                sendMetaAIReply(data.sender, data.text);
-            }
-
         } catch (err) {
-            console.error("❌ send_message error:", err.message);
+            console.error('❌ send_message error:', err.message);
         }
     });
 
@@ -398,7 +384,7 @@ io.on('connection', (socket) => {
         if (socket.userId) {
             await User.findOneAndUpdate({ username: socket.userId }, { isOnline: false });
             io.emit('user_status_update', { username: socket.userId, isOnline: false });
-            console.log(`👤 User disconnected: ${socket.userId}`);
+            console.log(`👤 Disconnected: ${socket.userId}`);
         }
     });
 });
