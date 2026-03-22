@@ -77,6 +77,8 @@ const StatusUpdate = mongoose.model('StatusUpdate', new mongoose.Schema({
 }));
 
 // --- ROUTES ---
+app.get('/api/ping', (req, res) => res.json({ status: 'alive' }));
+
 app.post('/api/status', async (req, res) => {
     try {
         const { username, type, content, bgColor, caption } = req.body;
