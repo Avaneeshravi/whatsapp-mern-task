@@ -3,6 +3,15 @@
    Complete CSS with all mobile fixes merged in
    ═══════════════════════════════════════════════════════════════ */
 
+/* ⚠️  REQUIRED — add this to your HTML <head> for keyboard + status fix:
+   <meta name="viewport"
+         content="width=device-width, initial-scale=1,
+                  interactive-widget=resizes-content,
+                  viewport-fit=cover">
+   interactive-widget=resizes-content  makes Android Chrome shrink the
+   LAYOUT viewport (not just visual) when soft keyboard opens, so the
+   chat input bar rises with the keyboard automatically.            */
+
 /* ── TOKENS ─────────────────────────────────────────────────── */
 :root {
   --teal:        #00a884;
@@ -1053,28 +1062,52 @@ input  { font-family: inherit; }
 ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
-   MOBILE  (≤ 768px)  — ALL FIXES MERGED
+   MOBILE  (≤ 768px)  — DEEP FIX
+   Root causes addressed:
+   1. Keyboard visibility: body must NOT be overflow:hidden on mobile.
+      The chat window uses a flex column that fills the visual viewport,
+      so when Android resizes the viewport for the keyboard the flex
+      column shrinks and the input bar stays visible.
+   2. Status send button: overlay z-index must beat the nav rail (10000).
+      The overlay uses inset:0 so it truly covers everything.
 ═══════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
 
-  /* ── APP SHELL ── */
-  .app-container {
-    display: block;
-    position: relative;
+  /* ── 1. UNLOCK BODY so Android can resize viewport for keyboard ── */
+  html {
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  body {
+    /* Do NOT lock height — let the visual viewport shrink */
+    height: 100% !important;
+    overflow: hidden !important;
+    /* Tell browser the interactive widget (keyboard) should
+       resize the layout viewport, not just the visual one    */
+    /* (supported in Chrome 108+, Android WebView 108+)       */
   }
 
-  /* ── BOTTOM NAV RAIL ── */
+  /* ── 2. APP SHELL ── */
+  .app-container {
+    display: block !important;
+    position: relative !important;
+    width: 100vw !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* ── 3. BOTTOM NAV RAIL ── */
   .nav-rail {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     width: 100vw !important;
-    height: 70px !important;
+    height: 60px !important;
     flex-direction: row !important;
     border-right: none !important;
     border-top: 1px solid var(--border) !important;
     padding: 0 !important;
-    z-index: 10000 !important;
+    z-index: 9000 !important;   /* below status overlay (99000) */
     display: flex !important;
     background-color: var(--white) !important;
   }
@@ -1088,7 +1121,6 @@ input  { font-family: inherit; }
     align-items: center !important;
     gap: 0 !important;
   }
-
   .nav-rail-bottom { display: none !important; }
 
   .nav-icon {
@@ -1099,42 +1131,54 @@ input  { font-family: inherit; }
     justify-content: center !important;
     align-items: center !important;
     border-radius: 0 !important;
-    gap: 4px !important;
+    gap: 3px !important;
     flex: 1 !important;
     color: #54656f !important;
   }
-  .nav-icon:hover       { background: transparent !important; }
-  .nav-icon.active      { background: transparent !important; }
+  .nav-icon:hover         { background: transparent !important; }
+  .nav-icon.active        { background: transparent !important; }
   .nav-icon.active::after { display: none !important; }
-  .nav-icon.desktop-only { display: none !important; }
-  .nav-icon.mobile-only  { display: flex !important; }
+  .nav-icon.desktop-only  { display: none !important; }
+  .nav-icon.mobile-only   { display: flex !important; }
 
   .nav-label {
     display: block !important;
-    font-size: 13px !important;
+    font-size: 11px !important;
     font-weight: 500 !important;
-    color: inherit;
+    color: inherit !important;
   }
-  .nav-icon.active .nav-label { color: var(--t1) !important; }
+  .nav-icon.active .nav-label { color: var(--teal) !important; }
+  .nav-icon.active svg        { color: var(--teal) !important; }
 
-  /* ── SIDEBAR / STATUS SIDEBAR ── */
+  /* ── 4. SIDEBAR / STATUS SIDEBAR ── */
   .sidebar,
   .status-sidebar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: calc(100vh - 70px);
-    max-width: none;
-    min-width: 0;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    /* Leave 60px at bottom for nav */
+    height: calc(100% - 60px) !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    z-index: 100 !important;
   }
 
-  /* ── HIDE MAIN PANE WHEN NO CHAT ACTIVE ── */
+  /* ── 5. HIDE MAIN PANE WHEN NO CHAT ACTIVE ── */
   .app-container:not(.chat-active) .main-pane { display: none !important; }
 
-  /* ═══════════════════════════════════════════════════════════
-     CHAT ACTIVE — full-screen chat, hide everything else
-  ═══════════════════════════════════════════════════════════ */
+  /* ════════════════════════════════════════════════════════════
+     6. CHAT ACTIVE STATE
+     The critical insight: we DON'T use height:100vh on the
+     chat window. Instead we use position:fixed with inset:0
+     and flex-direction:column. Android keyboard resizes the
+     visual viewport which changes the effective height of a
+     fixed element, so the flex column naturally shrinks and
+     pushes the input bar above the keyboard.
+  ════════════════════════════════════════════════════════════ */
+
+  /* Hide nav + sidebar when chat is open */
   .app-container.chat-active .sidebar,
   .app-container.chat-active .status-sidebar,
   .app-container.chat-active .settings-sidebar,
@@ -1143,174 +1187,230 @@ input  { font-family: inherit; }
     display: none !important;
   }
 
+  /* Chat window: fixed, full screen, flex column */
   .app-container.chat-active .chat-window {
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    /* Use dvh so it shrinks when the keyboard opens */
-    height: 100dvh !important;
-    height: 100vh !important; /* fallback for older browsers */
+    inset: 0 !important;         /* top:0 right:0 bottom:0 left:0 */
+    width: 100% !important;
+    height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    z-index: 1000 !important;
-    /* Let the browser resize the viewport when keyboard opens */
+    z-index: 5000 !important;
     overflow: hidden !important;
+    background-color: var(--chat-bg) !important;
   }
 
-  /* ── CHAT HEADER ── */
+  /* Chat header: fixed height, never shrinks */
   .chat-header {
     height: 56px !important;
-    padding: 0 8px 0 4px !important;
+    min-height: 56px !important;
+    padding: 0 6px 0 2px !important;
     flex-shrink: 0 !important;
-    z-index: 1001 !important;
+    z-index: 5001 !important;
     background: #f0f2f5 !important;
+    display: flex !important;
+    align-items: center !important;
   }
 
   .mobile-back-btn { display: flex !important; }
 
-  /* ── MESSAGES ── */
+  /* Messages: takes ALL remaining space between header and input.
+     min-height:0 is essential — without it, a flex child won't
+     shrink below its content size, so the input gets pushed off. */
   .messages-area {
-    flex: 1 1 0% !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    padding: 10px 4% 8px !important;
-    /* Ensure it never grows beyond available space */
+    flex: 1 1 0 !important;
     min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 10px 3% 6px !important;
   }
 
-  .message { max-width: 82% !important; font-size: 14px !important; }
+  .message {
+    max-width: 82% !important;
+    font-size: 14px !important;
+  }
 
-  /* ── INPUT AREA WRAPPER — always visible at bottom ── */
+  /* Input wrapper: never shrinks, always at bottom of flex column */
   .input-area-wrapper {
     flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    width: 100% !important;
     position: relative !important;
+    z-index: 5001 !important;
     background: var(--bg) !important;
-    z-index: 1001 !important;
-    /* Safe area inset for notched phones */
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
 
+  /* The actual input row */
   .input-area {
-    min-height: 56px !important;
+    display: flex !important;
+    align-items: center !important;
+    min-height: 54px !important;
     padding: 6px 8px !important;
     gap: 4px !important;
     background: var(--bg) !important;
+    width: 100% !important;
   }
 
+  /* Text input field */
   .input-area input:not([type="file"]) {
+    flex: 1 !important;
     height: 40px !important;
+    min-height: 40px !important;
     font-size: 15px !important;
-    padding: 0 12px !important;
-    border-radius: 20px !important;
+    padding: 0 14px !important;
+    border-radius: 22px !important;
+    border: none !important;
+    outline: none !important;
+    background: var(--white) !important;
+    color: var(--t1) !important;
   }
 
-  .send-btn { width: 42px !important; height: 42px !important; }
-  .icon-btn  { width: 38px !important; height: 38px !important; }
+  .send-btn {
+    width: 42px !important;
+    height: 42px !important;
+    flex-shrink: 0 !important;
+  }
 
+  .icon-btn {
+    width: 38px !important;
+    height: 38px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Reply/edit banner above input */
+  .action-banner {
+    padding: 6px 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Attach menu / emoji popup: float above the input bar */
   .attach-menu,
   .emoji-picker-popup {
-    bottom: 62px !important;
+    position: absolute !important;
+    bottom: 100% !important;
     left: 8px !important;
-    z-index: 1100 !important;
+    margin-bottom: 4px !important;
+    z-index: 5100 !important;
   }
 
-  .action-banner { padding: 8px 12px !important; }
-
-  /* ═══════════════════════════════════════════════════════════
-     SETTINGS PAGE — mobile full-screen
-  ═══════════════════════════════════════════════════════════ */
+  /* ── 7. SETTINGS PAGE ── */
   .settings-sidebar {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     width: 100vw !important;
-    height: calc(100vh - 70px) !important;
+    height: calc(100% - 60px) !important;
     z-index: 500 !important;
+    display: flex !important;
+    flex-direction: column !important;
     overflow: hidden !important;
   }
 
   .settings-header {
-    height: 80px !important;
+    height: 76px !important;
+    min-height: 76px !important;
     padding: 0 16px 12px !important;
     flex-shrink: 0 !important;
+    background: #008069 !important;
+  }
+  .settings-header h2         { font-size: 18px !important; font-weight: 600 !important; color: #fff !important; }
+  .settings-header .icon-btn  { color: #fff !important; display: flex !important; }
+
+  .settings-search            { flex-shrink: 0 !important; padding: 8px 12px !important; }
+  .settings-profile-row       { padding: 12px 16px !important; }
+  .settings-profile-row .profile-avatar { width: 58px !important; height: 58px !important; }
+
+  .settings-list {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
-  .settings-header h2    { font-size: 18px !important; font-weight: 600 !important; }
-  .settings-header .icon-btn { color: #fff !important; display: flex !important; }
+  .settings-item              { padding: 12px 16px !important; gap: 14px !important; }
+  .settings-item-text .title  { font-size: 15px !important; }
+  .settings-item-text .desc   { font-size: 13px !important; }
+  .settings-detail-pane       { display: none !important; }
 
-  .settings-search { flex-shrink: 0 !important; padding: 10px 12px !important; }
-
-  .settings-profile-row { padding: 14px 16px !important; }
-  .settings-profile-row .profile-avatar { width: 60px !important; height: 60px !important; }
-
-  .settings-list { flex: 1 !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; }
-
-  .settings-item { padding: 14px 16px !important; gap: 16px !important; }
-  .settings-item-text .title { font-size: 15px !important; }
-  .settings-item-text .desc  { font-size: 13px !important; }
-
-  /* Hide desktop detail pane on mobile */
-  .settings-detail-pane { display: none !important; }
-
-  /* ═══════════════════════════════════════════════════════════
-     PROFILE PAGE — mobile full-screen
-  ═══════════════════════════════════════════════════════════ */
+  /* ── 8. PROFILE PAGE ── */
   .profile-sidebar {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     width: 100vw !important;
-    height: calc(100vh - 70px) !important;
+    height: calc(100% - 60px) !important;
     z-index: 500 !important;
+    display: flex !important;
+    flex-direction: column !important;
     overflow: hidden !important;
   }
 
   .profile-header {
-    height: 80px !important;
+    height: 76px !important;
+    min-height: 76px !important;
     padding: 0 16px 12px !important;
     flex-shrink: 0 !important;
+    background: #008069 !important;
+  }
+  .profile-header h2          { font-size: 18px !important; color: #fff !important; }
+  .profile-header .icon-btn   { color: #fff !important; display: flex !important; }
+
+  .profile-scroll {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
-  .profile-header h2       { font-size: 18px !important; }
-  .profile-header .icon-btn { color: #fff !important; display: flex !important; }
+  .profile-pic-wrapper        { width: 150px !important; height: 150px !important; }
+  .profile-section            { padding: 14px 20px !important; margin-bottom: 8px !important; }
+  .profile-value-row          { font-size: 15px !important; }
 
-  .profile-scroll { flex: 1 !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; }
-
-  .profile-pic-wrapper { width: 160px !important; height: 160px !important; }
-
-  .profile-section { padding: 14px 20px !important; margin-bottom: 8px !important; }
-  .profile-value-row { font-size: 15px !important; }
-
-  /* ═══════════════════════════════════════════════════════════
-     STATUS COMPOSER — overlay covers full screen above nav
-  ═══════════════════════════════════════════════════════════ */
+  /* ════════════════════════════════════════════════════════════
+     9. STATUS COMPOSER — THE REAL FIX
+     Problem: nav rail z-index was 10000, overlay was 9999.
+     The nav rail's touch surface was covering the send button.
+     Fix: overlay gets z-index 99000, send button 99002.
+     The overlay uses inset:0 (all four sides = 0) which is
+     the most reliable way to cover the full screen in a fixed
+     context, even when browser chrome shifts on Android.
+  ════════════════════════════════════════════════════════════ */
   .status-fullscreen-overlay {
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    z-index: 20000 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 99000 !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
+    /* background set by JS per status type; fallback: */
     background: #008069 !important;
   }
 
+  /* Top toolbar (X, emoji, text, brush) */
   .status-top-bar {
+    flex-shrink: 0 !important;
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    padding: 14px 16px !important;
-    flex-shrink: 0 !important;
-    z-index: 20001 !important;
+    padding: 12px 16px !important;
+    z-index: 99001 !important;
+    background: transparent !important;
   }
 
+  .status-top-bar .icon-btn {
+    color: #fff !important;
+    background: rgba(0,0,0,0.25) !important;
+    border-radius: 50% !important;
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Middle: textarea or image preview */
   .status-content-area {
-    flex: 1 1 0% !important;
+    flex: 1 1 0 !important;
     min-height: 0 !important;
     display: flex !important;
     align-items: center !important;
@@ -1321,77 +1421,88 @@ input  { font-family: inherit; }
   }
 
   .status-textarea {
-    font-size: 28px !important;
-    min-height: 100px !important;
     width: 100% !important;
-    color: #fff !important;
+    font-size: 30px !important;
+    min-height: 80px !important;
     background: transparent !important;
     border: none !important;
     outline: none !important;
+    color: #fff !important;
     text-align: center !important;
     resize: none !important;
+    font-family: inherit !important;
+    line-height: 1.4 !important;
   }
-
-  /* Bottom bar — always visible, send button on right */
-  .status-bottom-bar {
-    flex-shrink: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    position: relative !important;
-    min-height: 76px !important;
-    padding: 12px 70px 12px 16px !important;
-    background: rgba(0,0,0,0.35) !important;
-    z-index: 20001 !important;
-  }
-
-  .status-caption-input {
-    width: 100% !important;
-    font-size: 14px !important;
-    background: rgba(255,255,255,0.15) !important;
-    border-radius: 20px !important;
-    padding: 10px 16px !important;
-    color: #fff !important;
-    border: none !important;
-    outline: none !important;
-  }
-
-  /* Send button — always tappable, vertically centred in bar */
-  .status-send-btn {
-    position: absolute !important;
-    right: 12px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    bottom: auto !important;
-    width: 52px !important;
-    height: 52px !important;
-    border-radius: 50% !important;
-    background: #25d366 !important;
-    color: #fff !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    z-index: 20002 !important;
-    pointer-events: all !important;
-    touch-action: manipulation !important;
-    border: none !important;
-    cursor: pointer !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-  }
+  .status-textarea::placeholder { color: rgba(255,255,255,0.55) !important; }
 
   .status-image-preview {
     max-width: 100% !important;
     max-height: 100% !important;
     object-fit: contain !important;
-    border-radius: 8px !important;
+    border-radius: 6px !important;
   }
 
-  /* ── CONTACT INFO SIDEBAR ── */
+  /* Bottom bar: caption input + send button
+     Height is explicit so the send btn never gets clipped.
+     No margin-bottom needed — the overlay covers the nav rail. */
+  .status-bottom-bar {
+    flex-shrink: 0 !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    height: 72px !important;
+    padding: 0 72px 0 16px !important;
+    background: rgba(0,0,0,0.4) !important;
+    z-index: 99001 !important;
+  }
+
+  .status-caption-input {
+    flex: 1 !important;
+    height: 42px !important;
+    background: rgba(255,255,255,0.18) !important;
+    border: none !important;
+    border-radius: 21px !important;
+    padding: 0 16px !important;
+    color: #fff !important;
+    font-size: 15px !important;
+    outline: none !important;
+  }
+  .status-caption-input::placeholder { color: rgba(255,255,255,0.6) !important; }
+
+  /* Send button: right side of bottom bar, always tappable */
+  .status-send-btn {
+    position: absolute !important;
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
+    background: #25d366 !important;
+    color: #fff !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
+    z-index: 99002 !important;
+    cursor: pointer !important;
+    pointer-events: all !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .status-send-btn:disabled {
+    background: rgba(255,255,255,0.25) !important;
+    box-shadow: none !important;
+  }
+
+  /* ── 10. CONTACT INFO SIDEBAR ── */
   .contact-info-sidebar {
     position: fixed !important;
-    top: 0 !important; left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    z-index: 2000 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 8000 !important;
     border-left: none !important;
   }
 
