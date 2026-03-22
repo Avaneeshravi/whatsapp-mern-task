@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 const app = express();
 app.use(cors());
@@ -22,6 +22,8 @@ const io = new Server(server, {
 let aiModel = null;
 let aiProvider = null;
 
+console.log('🔑 GEMINI_API_KEY loaded:', !!process.env.GEMINI_API_KEY);
+
 async function initAI() {
     // ── Option 1: Google Gemini ──────────────────────────────
     if (process.env.GEMINI_API_KEY) {
@@ -29,12 +31,12 @@ async function initAI() {
             const { GoogleGenerativeAI } = require('@google/generative-ai');
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-            // Try newer model first, fall back to older ones
+            // Updated model names for 2025
             const modelsToTry = [
+                'gemini-2.0-flash',
+                'gemini-2.0-flash-lite',
                 'gemini-1.5-flash',
-                'gemini-1.5-flash-latest',
-                'gemini-pro',
-                'gemini-1.0-pro'
+                'gemini-1.5-pro',
             ];
 
             for (const modelName of modelsToTry) {
@@ -66,6 +68,8 @@ async function initAI() {
         } catch (err) {
             console.error('❌ Failed to init Gemini:', err.message);
         }
+    } else {
+        console.warn('⚠️  GEMINI_API_KEY is not set in environment variables!');
     }
 
     // ── Option 2: OpenAI (if OPENAI_API_KEY is set) ──────────
@@ -73,7 +77,6 @@ async function initAI() {
         try {
             const OpenAI = require('openai');
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-            // Store openai client as aiModel with a wrapper
             aiModel = openai;
             aiProvider = 'openai';
             console.log('✅ OpenAI ready as fallback AI');
@@ -333,7 +336,6 @@ async function generateAIResponse(userText) {
     if (!aiModel) throw new Error('NO_AI');
 
     if (aiProvider === 'gemini') {
-        // Build a proper chat with system context
         const prompt = `${SYSTEM_PROMPT}\n\nUser: ${userText}\nMeta AI:`;
         const result = await aiModel.generateContent(prompt);
         const text = result.response.text().trim();
@@ -363,7 +365,6 @@ async function sendMetaAIReply(senderUsername, userText) {
     try {
         console.log(`📨 Meta AI ← ${senderUsername}: "${userText}"`);
 
-        // Retry once on transient errors
         let aiText;
         for (let attempt = 1; attempt <= 2; attempt++) {
             try {
@@ -462,7 +463,6 @@ io.on('connection', (socket) => {
             }
 
             if (data.receiver === 'Meta AI' && data.text) {
-                // Non-blocking — don't await
                 sendMetaAIReply(data.sender, data.text);
             }
         } catch (err) {
