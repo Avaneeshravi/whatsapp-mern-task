@@ -17,7 +17,6 @@ const io = new Server(server, {
     maxHttpBufferSize: 1e8
 });
 
-// --- AI CONFIGURATION ---
 console.log('GEMINI_API_KEY loaded:', !!process.env.GEMINI_API_KEY);
 let aiModel = null;
 
@@ -39,13 +38,11 @@ async function initAI() {
 }
 initAI();
 
-// --- DATABASE ---
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("MongoDB Connected"))
     .catch(err => console.error("Connection Error:", err));
 
-// --- MODELS ---
-// mobile and email are NOT required so existing users without them can still log in
+// mobile/email are NOT required so existing users without them can still log in
 const User = mongoose.model('User', new mongoose.Schema({
     username:    { type: String, unique: true, required: true },
     password:    { type: String, required: true },
@@ -94,7 +91,7 @@ const StatusUpdate = mongoose.model('StatusUpdate', new mongoose.Schema({
 app.get('/',       (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 app.get('/health', (req, res) => res.json({ status: 'ok', ai: !!aiModel }));
 
-// REGISTER — creates a new account; fails if username already exists
+// REGISTER — new accounts only
 app.post('/api/register', async (req, res) => {
     const { username, password, mobile, email } = req.body;
     if (!username || !password || !mobile) {
@@ -109,7 +106,7 @@ app.post('/api/register', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// LOGIN — only logs in existing users; never creates accounts
+// LOGIN — existing users only, never creates accounts
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
@@ -121,8 +118,7 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// LEGACY /api/auth — kept as a LOGIN-ONLY alias so any old clients still work
-// It will NEVER auto-create an account anymore
+// LEGACY /api/auth — login-only alias for backwards compatibility
 app.post('/api/auth', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
@@ -301,17 +297,27 @@ io.on('connection', (socket) => {
     socket.on('send_message', async (data) => {
         if ((!data.text && !data.file) || !data.sender || !data.receiver) return;
         try {
-            const newMessage = new Message({ ...data, isRead: false });
+            const { tempId, ...msgData } = data;
+
+            // Save to DB
+            const newMessage = new Message({ ...msgData, isRead: false });
             const savedMessage = await newMessage.save();
+
+            // Build the payload — include tempId so sender can swap optimistic msg
+            const payload = savedMessage.toObject();
+            if (tempId) payload.tempId = tempId;
 
             if (data.receiverType === 'group') {
                 const group = await Group.findById(data.receiver);
-                if (group?.members) group.members.forEach(m => io.to(m).emit('receive_message', savedMessage));
+                if (group?.members) group.members.forEach(m => io.to(m).emit('receive_message', payload));
             } else {
-                io.to(data.receiver).emit('receive_message', savedMessage);
-                if (data.sender !== data.receiver) io.to(data.sender).emit('receive_message', savedMessage);
+                // Send to receiver (no tempId needed for them)
+                io.to(data.receiver).emit('receive_message', savedMessage.toObject());
+                // Send confirmed message back to sender with tempId so they can replace optimistic msg
+                if (data.sender !== data.receiver) io.to(data.sender).emit('message_confirmed', payload);
             }
 
+            // META AI
             if (data.receiver === "Meta AI" && data.text) {
                 io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: true });
                 try {
@@ -321,13 +327,13 @@ io.on('connection', (socket) => {
                     const aiReply = new Message({ sender: "Meta AI", receiver: data.sender, text: aiText, isRead: false });
                     await aiReply.save();
                     io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: false });
-                    io.to(data.sender).emit('receive_message', aiReply);
+                    io.to(data.sender).emit('receive_message', aiReply.toObject());
                 } catch (error) {
                     console.error("Gemini API Error:", error.message);
                     io.to(data.sender).emit('display_typing', { sender: "Meta AI", isTyping: false });
                     const errorReply = new Message({ sender: "Meta AI", receiver: data.sender, text: "I'm having a minor update in my brain. Try asking me again!", isRead: false });
                     await errorReply.save();
-                    io.to(data.sender).emit('receive_message', errorReply);
+                    io.to(data.sender).emit('receive_message', errorReply.toObject());
                 }
             }
         } catch (err) { console.error('send_message error:', err.message); }
