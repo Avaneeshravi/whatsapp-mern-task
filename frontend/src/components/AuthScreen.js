@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const AuthScreen = ({ setUser, setCurrentUserData, socket, setStatuses }) => {
   const [authData, setAuthData] = useState({ username: '', password: '', mobile: '', email: '' });
   const [isRegistering, setIsRegistering] = useState(false);
   const [passwordError, setPasswordError] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+
   return (
     <div className="auth-wrapper">
       <form className="auth-form" onSubmit={async (e) => {
         e.preventDefault();
-        setErrorMsg('');
         if (isRegistering) {
           const pwd = authData.password;
           if (pwd.length < 8 || !/[a-z]/.test(pwd) || !/[A-Z]/.test(pwd) || !/\d/.test(pwd) || !/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) {
@@ -20,8 +21,7 @@ const AuthScreen = ({ setUser, setCurrentUserData, socket, setStatuses }) => {
         }
         setPasswordError('');
         try {
-          const endpoint = isRegistering ? '/api/register' : '/api/login';
-          const res = await axios.post(`${API_URL}${endpoint}`, authData);
+          const res = await axios.post(`${API_URL}/api/auth`, authData);
           setUser(res.data.username);
           setCurrentUserData(res.data);
           socket.emit('user_login', res.data.username);
@@ -29,9 +29,7 @@ const AuthScreen = ({ setUser, setCurrentUserData, socket, setStatuses }) => {
             const statRes = await axios.get(`${API_URL}/api/status`);
             setStatuses(statRes.data);
           } catch (e) { }
-        } catch (err) {
-          setErrorMsg(err.response?.data?.error || 'Something went wrong. Please try again.');
-        }
+        } catch (err) { alert(err.response?.data?.error || 'Auth failed'); }
       }}>
         <div className="auth-logo">
           <svg viewBox="0 0 55 55" width="48" height="48">
@@ -40,27 +38,25 @@ const AuthScreen = ({ setUser, setCurrentUserData, socket, setStatuses }) => {
           </svg>
           <h2>WhatsApp</h2>
         </div>
-        <p className="auth-sub">{isRegistering ? 'Create your account' : 'Sign in to continue'}</p>
+        <p className="auth-sub">Sign in to continue</p>
         <input required placeholder="Username" value={authData.username}
-          onChange={e => { setAuthData({ ...authData, username: e.target.value }); setErrorMsg(''); }} />
+          onChange={e => setAuthData({ ...authData, username: e.target.value })} />
         {isRegistering && (
           <>
             <input required type="email" placeholder="Email ID" value={authData.email}
-              onChange={e => { setAuthData({ ...authData, email: e.target.value }); setErrorMsg(''); }} />
+              onChange={e => setAuthData({ ...authData, email: e.target.value })} />
             <input required type="tel" maxLength="10" placeholder="Mobile"
-              value={authData.mobile} onChange={e => { setAuthData({ ...authData, mobile: e.target.value }); setErrorMsg(''); }} />
+              value={authData.mobile} onChange={e => setAuthData({ ...authData, mobile: e.target.value })} />
           </>
         )}
         <input required type="password" placeholder="Password" value={authData.password}
-          onChange={e => { setAuthData({ ...authData, password: e.target.value }); setPasswordError(''); setErrorMsg(''); }} />
+          onChange={e => { setAuthData({ ...authData, password: e.target.value }); setPasswordError(''); }} />
         {passwordError && <div className="error-text">{passwordError}</div>}
-        {errorMsg && <div className="error-text">{errorMsg}</div>}
         <button type="submit">{isRegistering ? 'Sign Up' : 'Login'}</button>
         <span className="toggle-auth" onClick={() => {
           setIsRegistering(!isRegistering);
           setAuthData({ username: '', password: '', mobile: '', email: '' });
           setPasswordError('');
-          setErrorMsg('');
         }}>
           {isRegistering ? 'Already have an account? Login' : 'New here? Register'}
         </span>
@@ -68,4 +64,5 @@ const AuthScreen = ({ setUser, setCurrentUserData, socket, setStatuses }) => {
     </div>
   );
 };
+
 export default AuthScreen;
