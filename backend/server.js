@@ -151,14 +151,16 @@ app.get('/api/status', async (req, res) => {
 });
 
 app.post('/api/auth', async (req, res) => {
-    const { username, password, mobile, email } = req.body;
+    const { username, password, mobile, email, isRegistering } = req.body;
     try {
         let user = await User.findOne({ username });
-        if (!user) {
+        if (isRegistering) {
+            if (user) return res.status(409).json({ error: "Username already taken. Please choose another." });
             user = new User({ username, password, mobile: mobile || '0000000000', email });
             await user.save();
-        } else if (user.password !== password) {
-            return res.status(401).json({ error: "Invalid password" });
+        } else {
+            if (!user) return res.status(404).json({ error: "Account not found. Please register first." });
+            if (user.password !== password) return res.status(401).json({ error: "Invalid password." });
         }
         res.status(200).json(user);
     } catch (err) { res.status(500).json({ error: err.message }); }
