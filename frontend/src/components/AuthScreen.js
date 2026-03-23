@@ -21,7 +21,7 @@ const AuthScreen = ({ setUser, setCurrentUserData, socket, setStatuses }) => {
         }
         setPasswordError('');
         try {
-          const res = await axios.post(`${API_URL}/api/auth`, authData);
+          const res = await axios.post(`${API_URL}/api/auth`, { ...authData, isRegistering });
           setUser(res.data.username);
           setCurrentUserData(res.data);
           socket.emit('user_login', res.data.username);
